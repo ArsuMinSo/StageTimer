@@ -1,0 +1,91 @@
+<!-- queue.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Queue Manager</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; text-align: center; }
+    table { margin: auto; min-width: 400px; border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 0.5rem; }
+    input, button { font-size: 1.2rem; margin: 0.2rem; }
+    tr.selected { background: #cfc; }
+  </style>
+</head>
+<body>
+  <h1>Queue Manager</h1>
+  <table id="queueTable">
+    <thead><tr><th>#</th><th>Name</th><th>Duration (s)</th><th>Actions</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <h3>Add/Edit Task</h3>
+  <form id="addForm" onsubmit="addOrEditTask(event)">
+    <input type="hidden" id="editIndex" value="" />
+    <input type="text" id="taskName" placeholder="Task name" required />
+    <input type="number" id="taskDuration" placeholder="Duration (s)" required min="1" />
+    <button type="submit">Add/Update</button>
+    <button type="button" onclick="resetForm()">Cancel</button>
+  </form>
+  <button onclick="window.location.href='control.html'">Back to Control</button>
+  <script>
+    const ws = new WebSocket("ws://" + location.hostname + ":50011");
+    let queue = [];
+    let currentTaskIndex = 0;
+    ws.onmessage = function(event) {
+      const data = JSON.parse(event.data);
+      queue = data.queue || [];
+      currentTaskIndex = data.current_task_index || 0;
+      renderQueue();
+    };
+    function send(cmd) { ws.send(cmd); }
+    function renderQueue() {
+      const tbody = document.querySelector('#queueTable tbody');
+      tbody.innerHTML = '';
+      queue.forEach((item, idx) => {
+        const tr = document.createElement('tr');
+        tr.className = idx === currentTaskIndex ? 'selected' : '';
+        tr.innerHTML = `
+          <td>${idx+1}</td>
+          <td>${item.name}</td>
+          <td>${item.duration}</td>
+          <td>
+            <button onclick="editTask(${idx})">Edit</button>
+            <button onclick="deleteTask(${idx})">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+    function addOrEditTask(e) {
+      e.preventDefault();
+      const name = document.getElementById('taskName').value;
+      const duration = document.getElementById('taskDuration').value;
+      const editIndex = document.getElementById('editIndex').value;
+      if (editIndex === '') {
+        send(`queue_add ${name} ${duration}`);
+      } else {
+        deleteTask(editIndex, false);
+        setTimeout(() => send(`queue_add ${name} ${duration}`), 100);
+      }
+      resetForm();
+    }
+    function editTask(idx) {
+      document.getElementById('editIndex').value = idx;
+      document.getElementById('taskName').value = queue[idx].name;
+      document.getElementById('taskDuration').value = queue[idx].duration;
+    }
+    function deleteTask(idx, resetFormFlag = true) {
+      queue.splice(idx, 1);
+      send('queue_clear');
+      setTimeout(() => {
+        queue.forEach(item => send(`queue_add ${item.name} ${item.duration}`));
+      }, 100);
+      if (resetFormFlag) resetForm();
+    }
+    function resetForm() {
+      document.getElementById('editIndex').value = '';
+      document.getElementById('taskName').value = '';
+      document.getElementById('taskDuration').value = '';
+    }
+  </script>
+</body>
+</html>

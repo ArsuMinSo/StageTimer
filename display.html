@@ -1,0 +1,48 @@
+<!-- display.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Stage Timer</title>
+  <style>
+    body {
+      background: black;
+      color: lime;
+      font-family: monospace;
+      font-size: 20vw;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div>
+    <div id="taskName" style="font-size:5vw; margin-bottom:2vw;"></div>
+    <div id="timer">--:--</div>
+  </div>
+
+  <script>
+    const timerEl = document.getElementById("timer");
+    const taskNameEl = document.getElementById("taskName");
+    const ws = new WebSocket("ws://" + location.hostname + ":50011");
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const remaining = data.remaining;
+      const minutes = String(Math.floor(Math.abs(remaining) / 60)).padStart(2, '0');
+      const seconds = String(Math.abs(remaining) % 60).padStart(2, '0');
+      let prefix = remaining < 0 ? '-' : '';
+      timerEl.textContent = `${prefix}${minutes}:${seconds}`;
+      // Show current task name if available
+      if (data.current_name) {
+        taskNameEl.textContent = data.current_name;
+      } else {
+        taskNameEl.textContent = '';
+      }
+    };
+  </script>
+</body>
+</html>
