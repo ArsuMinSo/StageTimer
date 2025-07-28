@@ -5,162 +5,187 @@
   <title>Timer Control</title>
   <style>
     body {
-      font-family: sans-serif;
-      padding: 2rem;
-      text-align: center;
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f5f5f5;
     }
-    input, button {
-      font-size: 1.5rem;
-      margin: 0.5rem;
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #timer {
+      font-size: 72px;
+      text-align: center;
+      margin: 30px 0;
+      font-family: 'Courier New', monospace;
+      background: #000;
+      color: #0f0;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    #taskName {
+      font-size: 24px;
+      text-align: center;
+      margin: 20px 0;
+      font-weight: bold;
+      color: #333;
+    }
+    .controls {
+      text-align: center;
+      margin: 30px 0;
+    }
+    .controls button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      margin: 5px;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .controls button:hover {
+      background: #0056b3;
+    }
+    .controls button.danger {
+      background: #dc3545;
+    }
+    .controls button.danger:hover {
+      background: #c82333;
+    }
+    .controls button.success {
+      background: #28a745;
+    }
+    .controls button.success:hover {
+      background: #218838;
+    }
+    .adjust-controls {
+      text-align: center;
+      margin: 20px 0;
+    }
+    .adjust-controls button {
+      background: #6c757d;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      margin: 2px;
+      border-radius: 3px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .adjust-controls button:hover {
+      background: #545b62;
+    }
+    .queue-navigation {
+      text-align: center;
+      margin: 30px 0;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .queue-navigation button {
+      background: #17a2b8;
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      margin: 5px;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .queue-navigation button:hover {
+      background: #138496;
+    }
+    .nav-panel {
+      background: #343a40;
+      padding: 15px;
+      margin: -20px -20px 20px -20px;
+      border-radius: 8px 8px 0 0;
+    }
+    .nav-panel a {
+      color: white;
+      text-decoration: none;
+      padding: 8px 15px;
+      margin: 0 5px;
+      border-radius: 4px;
+      background: #495057;
+      display: inline-block;
+    }
+    .nav-panel a:hover {
+      background: #6c757d;
+    }
+    .nav-panel a.active {
+      background: #007bff;
     }
   </style>
 </head>
 <body>
-  <h1>Control Panel</h1>
+  <div class="container">
+    <div class="nav-panel">
+      <a href="control.html" class="active">Control</a>
+      <a href="queue.html">Queue Manager</a>
+      <a href="display.html">Display</a>
+      <a href="designer.html">Page Designer</a>
+    </div>
+    
+    <h1>Timer Control</h1>
+    
+    <div id="taskName"></div>
+    <div id="timer">--:--</div>
+    
+    <div class="controls">
+      <button class="success" onclick="sendCommand('start')">Start</button>
+      <button onclick="sendCommand('pause')">Pause</button>
+      <button onclick="sendCommand('resume')">Resume</button>
+      <button class="danger" onclick="sendCommand('reset')">Reset</button>
+    </div>
 
+    <div class="adjust-controls">
+      <h3>Quick Time Adjustments</h3>
+      <button onclick="sendCommand('adjust -300')">-5min</button>
+      <button onclick="sendCommand('adjust -60')">-1min</button>
+      <button onclick="sendCommand('adjust -30')">-30s</button>
+      <button onclick="sendCommand('adjust -10')">-10s</button>
+      <button onclick="sendCommand('adjust 10')">+10s</button>
+      <button onclick="sendCommand('adjust 30')">+30s</button>
+      <button onclick="sendCommand('adjust 60')">+1min</button>
+      <button onclick="sendCommand('adjust 300')">+5min</button>
+    </div>
 
-  <div style="font-size:2rem; margin-bottom:1rem;">
-    <span id="currentTaskName"></span>
-    <span id="currentTaskTime" style="margin-left:2em;"></span>
+    <div class="queue-navigation">
+      <h3>Queue Navigation</h3>
+      <button onclick="sendCommand('prev')">← Previous Task</button>
+      <button onclick="sendCommand('next')">Next Task →</button>
+    </div>
   </div>
-  <button onclick="send('pause')">Pause</button>
-  <button onclick="send('resume')">Resume</button>
-  <button onclick="send('reset')">Reset</button>
-  <button onclick="send('prev')">Prev Task</button>
-  <button onclick="send('next')">Next Task</button>
-  <button onclick="send('queue_clear')">Clear Queue</button>
-  <br><br>
-  <button onclick="adjustTime(60)">+1 min</button>
-  <button onclick="adjustTime(30)">+30 sec</button>
-  <button onclick="adjustTime(-30)">-30 sec</button>
-  <button onclick="adjustTime(-60)">-1 min</button>
-  <input type="number" id="customAdjust" placeholder="±sec" style="width:6em;" />
-  <button onclick="adjustTime(parseInt(document.getElementById('customAdjust').value)||0)">Adjust</button>
-  <br><br>
-  <a href="queue.html" style="font-size:1.2rem;">Open Queue Manager</a>
-
-
-  <h2>Queue</h2>
-  <table id="queueTable" border="1" style="margin:auto; min-width:400px;">
-    <thead><tr><th>#</th><th>Name</th><th>Duration</th><th>Time Left</th><th>Actions</th></tr></thead>
-    <tbody></tbody>
-  </table>
-
-
-  <h3>Add/Edit Timer</h3>
-  <form id="addForm" onsubmit="addOrEditTimer(event)">
-    <input type="hidden" id="editIndex" value="" />
-    <input type="text" id="taskName" placeholder="Task name" required />
-    <input type="number" id="taskDuration" placeholder="Duration (s)" required min="1" />
-    <button type="submit">Add/Update</button>
-    <button type="button" onclick="resetForm()">Cancel</button>
-  </form>
 
   <script>
+    const timerEl = document.getElementById("timer");
+    const taskNameEl = document.getElementById("taskName");
     const ws = new WebSocket("ws://" + location.hostname + ":50011");
-    let queue = [];
-    let currentTaskIndex = 0;
 
-
-    let timerState = {remaining: 0, running: false};
-    ws.onmessage = function(event) {
+    ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      queue = data.queue || [];
-      currentTaskIndex = data.current_task_index || 0;
-      timerState = {remaining: data.remaining, running: data.running};
-      // Show current timer name and time at the top
-      document.getElementById('currentTaskName').textContent = data.current_name ? data.current_name : '';
-      document.getElementById('currentTaskTime').textContent = formatTime(data.remaining);
-      renderQueue();
+      const remaining = data.remaining;
+      const minutes = String(Math.floor(Math.abs(remaining) / 60)).padStart(2, '0');
+      const seconds = String(Math.abs(remaining) % 60).padStart(2, '0');
+      let prefix = remaining < 0 ? '-' : '';
+      timerEl.textContent = `${prefix}${minutes}:${seconds}`;
+      
+      // Show current task name
+      if (data.current_name) {
+        taskNameEl.textContent = `Current: ${data.current_name}`;
+      } else {
+        taskNameEl.textContent = 'No task selected';
+      }
     };
 
-    function send(cmd) {
+    function sendCommand(cmd) {
       ws.send(cmd);
-    }
-
-    function formatTime(secs) {
-      const sign = secs < 0 ? '-' : '';
-      secs = Math.abs(secs);
-      const m = String(Math.floor(secs/60)).padStart(2,'0');
-      const s = String(secs%60).padStart(2,'0');
-      return `${sign}${m}:${s}`;
-    }
-
-    function adjustTime(delta) {
-      if (!delta) return;
-      send('adjust ' + delta);
-    }
-
-    function renderQueue() {
-      const tbody = document.querySelector('#queueTable tbody');
-      tbody.innerHTML = '';
-      queue.forEach((item, idx) => {
-        const tr = document.createElement('tr');
-        tr.style.background = idx === currentTaskIndex ? '#cfc' : '';
-        let timeLeft;
-        if (idx === currentTaskIndex) {
-          timeLeft = formatTime(timerState.remaining);
-        } else {
-          timeLeft = formatTime(item.duration);
-        }
-        tr.innerHTML = `
-          <td>${idx+1}</td>
-          <td>${item.name}</td>
-          <td>${item.duration}</td>
-          <td>${timeLeft}</td>
-          <td>
-            <button onclick="editTimer(${idx})">Edit</button>
-            <button onclick="deleteTimer(${idx})">Delete</button>
-            <button onclick="selectTask(${idx})">Select</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function addOrEditTimer(e) {
-      e.preventDefault();
-      const name = document.getElementById('taskName').value;
-      const duration = document.getElementById('taskDuration').value;
-      const editIndex = document.getElementById('editIndex').value;
-      if (editIndex === '') {
-        send(`queue_add ${name} ${duration}`);
-      } else {
-        // Remove old, add new at same index
-        deleteTimer(editIndex, false);
-        setTimeout(() => send(`queue_add ${name} ${duration}`), 100);
-      }
-      resetForm();
-    }
-
-    function editTimer(idx) {
-      document.getElementById('editIndex').value = idx;
-      document.getElementById('taskName').value = queue[idx].name;
-      document.getElementById('taskDuration').value = queue[idx].duration;
-    }
-
-    function deleteTimer(idx, resetFormFlag = true) {
-      queue.splice(idx, 1);
-      // Clear and re-add all items to keep server in sync
-      send('queue_clear');
-      setTimeout(() => {
-        queue.forEach(item => send(`queue_add ${item.name} ${item.duration}`));
-      }, 100);
-      if (resetFormFlag) resetForm();
-    }
-
-    function selectTask(idx) {
-      // Move to selected task by sending next/prev as needed
-      if (idx === currentTaskIndex) return;
-      let diff = idx - currentTaskIndex;
-      let cmd = diff > 0 ? 'next' : 'prev';
-      for (let i = 0; i < Math.abs(diff); i++) send(cmd);
-    }
-
-    function resetForm() {
-      document.getElementById('editIndex').value = '';
-      document.getElementById('taskName').value = '';
-      document.getElementById('taskDuration').value = '';
     }
   </script>
 </body>

@@ -18,7 +18,6 @@
   </style>
 </head>
 <body>
-
   <div>
     <div id="taskName" style="font-size:5vw; margin-bottom:2vw;"></div>
     <div id="timer">--:--</div>
@@ -27,22 +26,49 @@
   <script>
     const timerEl = document.getElementById("timer");
     const taskNameEl = document.getElementById("taskName");
-    const ws = new WebSocket("ws://" + location.hostname + ":50011");
+    let ws;
+    let reconnectInterval;
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      const remaining = data.remaining;
-      const minutes = String(Math.floor(Math.abs(remaining) / 60)).padStart(2, '0');
-      const seconds = String(Math.abs(remaining) % 60).padStart(2, '0');
-      let prefix = remaining < 0 ? '-' : '';
-      timerEl.textContent = `${prefix}${minutes}:${seconds}`;
-      // Show current task name if available
-      if (data.current_name) {
-        taskNameEl.textContent = data.current_name;
-      } else {
-        taskNameEl.textContent = '';
-      }
-    };
+    function connectWebSocket() {
+      ws = new WebSocket("ws://" + location.hostname + ":50011");
+      
+      ws.onopen = () => {
+        console.log("WebSocket connected");
+        if (reconnectInterval) {
+          clearInterval(reconnectInterval);
+          reconnectInterval = null;
+        }
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const remaining = data.remaining;
+        const minutes = String(Math.floor(Math.abs(remaining) / 60)).padStart(2, '0');
+        const seconds = String(Math.abs(remaining) % 60).padStart(2, '0');
+        let prefix = remaining < 0 ? '-' : '';
+        timerEl.textContent = `${prefix}${minutes}:${seconds}`;
+        
+        if (data.current_name) {
+          taskNameEl.textContent = data.current_name;
+        } else {
+          taskNameEl.textContent = '';
+        }
+      };
+
+      ws.onclose = () => {
+        console.log("WebSocket disconnected, attempting reconnection...");
+        if (!reconnectInterval) {
+          reconnectInterval = setInterval(connectWebSocket, 3000);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+      };
+    }
+
+    // Initial connection
+    connectWebSocket();
   </script>
 </body>
 </html>

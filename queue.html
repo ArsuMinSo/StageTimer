@@ -4,15 +4,45 @@
 <head>
   <title>Queue Manager</title>
   <style>
-    body { font-family: sans-serif; padding: 2rem; text-align: center; }
+    body { font-family: sans-serif; padding: 2rem; text-align: center; background: #f5f5f5; }
+    .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     table { margin: auto; min-width: 400px; border-collapse: collapse; }
     th, td { border: 1px solid #ccc; padding: 0.5rem; }
     input, button { font-size: 1.2rem; margin: 0.2rem; }
     tr.selected { background: #cfc; }
+    .nav-panel {
+      background: #343a40;
+      padding: 15px;
+      margin: -20px -20px 20px -20px;
+      border-radius: 8px 8px 0 0;
+    }
+    .nav-panel a {
+      color: white;
+      text-decoration: none;
+      padding: 8px 15px;
+      margin: 0 5px;
+      border-radius: 4px;
+      background: #495057;
+      display: inline-block;
+    }
+    .nav-panel a:hover {
+      background: #6c757d;
+    }
+    .nav-panel a.active {
+      background: #007bff;
+    }
   </style>
 </head>
 <body>
-  <h1>Queue Manager</h1>
+  <div class="container">
+    <div class="nav-panel">
+      <a href="control.html">Control</a>
+      <a href="queue.html" class="active">Queue Manager</a>
+      <a href="display.html">Display</a>
+      <a href="designer.html">Page Designer</a>
+    </div>
+    
+    <h1>Queue Manager</h1>
   <table id="queueTable">
     <thead><tr><th>#</th><th>Name</th><th>Duration (s)</th><th>Actions</th></tr></thead>
     <tbody></tbody>
@@ -25,18 +55,51 @@
     <button type="submit">Add/Update</button>
     <button type="button" onclick="resetForm()">Cancel</button>
   </form>
-  <button onclick="window.location.href='control.html'">Back to Control</button>
+  </div>
   <script>
-    const ws = new WebSocket("ws://" + location.hostname + ":50011");
+    let ws;
+    let reconnectInterval;
     let queue = [];
     let currentTaskIndex = 0;
-    ws.onmessage = function(event) {
-      const data = JSON.parse(event.data);
-      queue = data.queue || [];
-      currentTaskIndex = data.current_task_index || 0;
-      renderQueue();
-    };
-    function send(cmd) { ws.send(cmd); }
+
+    function connectWebSocket() {
+      ws = new WebSocket("ws://" + location.hostname + ":50011");
+      
+      ws.onopen = () => {
+        console.log("WebSocket connected");
+        if (reconnectInterval) {
+          clearInterval(reconnectInterval);
+          reconnectInterval = null;
+        }
+      };
+
+      ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        queue = data.queue || [];
+        currentTaskIndex = data.current_task_index || 0;
+        renderQueue();
+      };
+
+      ws.onclose = () => {
+        console.log("WebSocket disconnected, attempting reconnection...");
+        if (!reconnectInterval) {
+          reconnectInterval = setInterval(connectWebSocket, 3000);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+      };
+    }
+
+    function send(cmd) { 
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(cmd); 
+      } else {
+        console.error("WebSocket not connected");
+      }
+    }
+
     function renderQueue() {
       const tbody = document.querySelector('#queueTable tbody');
       tbody.innerHTML = '';
@@ -55,37 +118,111 @@
         tbody.appendChild(tr);
       });
     }
+
     function addOrEditTask(e) {
       e.preventDefault();
       const name = document.getElementById('taskName').value;
       const duration = document.getElementById('taskDuration').value;
       const editIndex = document.getElementById('editIndex').value;
+      
       if (editIndex === '') {
+        // Adding new task
         send(`queue_add ${name} ${duration}`);
       } else {
-        deleteTask(editIndex, false);
-        setTimeout(() => send(`queue_add ${name} ${duration}`), 100);
+        // Editing existing task - simple approach
+        const editIdx = parseInt(editIndex);
+        
+        // Store current queue state
+        const currentQueue = [...queue];
+        const wasCurrentTask = (editIdx === currentTaskIndex);
+        
+        // Update the item in our local copy
+        currentQueue[editIdx] = {name: name, duration: parseInt(duration)};
+        
+        // Clear and rebuild
+        send('queue_clear');
+        
+        // Wait a bit, then rebuild the queue
+        setTimeout(() => {
+          currentQueue.forEach((item, idx) => {
+            send(`queue_add ${item.name} ${item.duration}`);
+          });
+          
+          // If we edited the current task, update the timer
+          if (wasCurrentTask) {
+            setTimeout(() => {
+              send("refresh_current");
+            }, 500);
+          }
+          
+          // Restore current task position
+          setTimeout(() => {
+            for (let i = 0; i < currentTaskIndex; i++) {
+              send('next');
+            }
+          }, 600);
+        }, 200);
       }
       resetForm();
     }
+
     function editTask(idx) {
       document.getElementById('editIndex').value = idx;
       document.getElementById('taskName').value = queue[idx].name;
       document.getElementById('taskDuration').value = queue[idx].duration;
     }
+
     function deleteTask(idx, resetFormFlag = true) {
-      queue.splice(idx, 1);
+      // Create new queue without the deleted item
+      const newQueue = queue.filter((_, index) => index !== idx);
+      const deletedIdx = parseInt(idx);
+      
+      // Clear queue and rebuild
       send('queue_clear');
       setTimeout(() => {
-        queue.forEach(item => send(`queue_add ${item.name} ${item.duration}`));
-      }, 100);
+        newQueue.forEach(item => send(`queue_add ${item.name} ${item.duration}`));
+        
+        // Adjust current task index if needed
+        setTimeout(() => {
+          let newCurrentIndex = currentTaskIndex;
+          
+          if (deletedIdx < currentTaskIndex) {
+            // Deleted item was before current, move current back by 1
+            newCurrentIndex = currentTaskIndex - 1;
+          } else if (deletedIdx === currentTaskIndex) {
+            // Deleted the current item
+            if (newQueue.length === 0) {
+              // Queue is now empty
+              newCurrentIndex = 0;
+            } else if (currentTaskIndex >= newQueue.length) {
+              // Current index is now out of bounds, go to last item
+              newCurrentIndex = newQueue.length - 1;
+            }
+            // If deleting current item but staying in bounds, keep same index
+          }
+          
+          // Navigate to the correct position
+          for (let i = 0; i < newCurrentIndex; i++) {
+            send('next');
+          }
+        }, 300);
+      }, 200);
+      
       if (resetFormFlag) resetForm();
     }
+
     function resetForm() {
       document.getElementById('editIndex').value = '';
       document.getElementById('taskName').value = '';
       document.getElementById('taskDuration').value = '';
     }
+
+    function refreshCurrentTask() {
+      send("refresh_current");
+    }
+
+    // Initial connection
+    connectWebSocket();
   </script>
 </body>
 </html>

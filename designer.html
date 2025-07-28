@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Timer Page Designer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .editor-section {
+            margin-bottom: 20px;
+        }
+        .editor-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            font-family: 'Courier New', monospace;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .preview {
+            border: 1px solid #ddd;
+            padding: 10px;
+            min-height: 300px;
+            background: white;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        .templates {
+            margin: 20px 0;
+        }
+        .template-btn {
+            background: #28a745;
+            margin: 5px;
+        }
+        .template-btn:hover {
+            background: #1e7e34;
+        }
+        .nav-panel {
+            background: #343a40;
+            padding: 15px;
+            margin: -20px -20px 20px -20px;
+            border-radius: 8px 8px 0 0;
+        }
+        .nav-panel a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 15px;
+            margin: 0 5px;
+            border-radius: 4px;
+            background: #495057;
+            display: inline-block;
+        }
+        .nav-panel a:hover {
+            background: #6c757d;
+        }
+        .nav-panel a.active {
+            background: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="nav-panel">
+            <a href="control.html">Control</a>
+            <a href="queue.html">Queue Manager</a>
+            <a href="display.html">Display</a>
+            <a href="designer.html" class="active">Page Designer</a>
+        </div>
+        
+        <h1>Timer Page Designer</h1>
+        
+        <div class="editor-section">
+            <h3>Templates</h3>
+            <div class="templates">
+                <button class="template-btn" onclick="loadTemplate('display')">Display Template</button>
+                <button class="template-btn" onclick="loadTemplate('control')">Control Template</button>
+                <button class="template-btn" onclick="loadTemplate('queue')">Queue Template</button>
+                <button class="template-btn" onclick="loadTemplate('custom')">Custom Template</button>
+            </div>
+        </div>
+
+        <div class="editor-section">
+            <h3>HTML Editor</h3>
+            <textarea id="htmlEditor" placeholder="Enter your HTML code here..."></textarea>
+        </div>
+
+        <div class="editor-section">
+            <h3>Preview</h3>
+            <div id="preview" class="preview"></div>
+        </div>
+
+        <div class="editor-section">
+            <h3>Save Page</h3>
+            <input type="text" id="filename" placeholder="page-name.html" value="custom.html">
+            <button onclick="updatePreview()">Update Preview</button>
+            <button onclick="savePage()">Save Page</button>
+            <button onclick="testTimer()">Test Timer Connection</button>
+        </div>
+
+        <div id="status"></div>
+    </div>
+
+    <script>
+        const editor = document.getElementById('htmlEditor');
+        const preview = document.getElementById('preview');
+        const status = document.getElementById('status');
+
+        const templates = {
+            display: `<!DOCTYPE html>
+<html>
+<head>
+    <title>Custom Timer Display</title>
+    <style>
+        body {
+            background: black;
+            color: lime;
+            font-family: monospace;
+            font-size: 20vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <div id="taskName" style="font-size:5vw; margin-bottom:2vw;"></div>
+        <div id="timer">--:--</div>
+    </div>
+
+    <script>
+        const timerEl = document.getElementById("timer");
+        const taskNameEl = document.getElementById("taskName");
+        const ws = new WebSocket("ws://" + location.hostname + ":50011");
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const remaining = data.remaining;
+            const minutes = String(Math.floor(Math.abs(remaining) / 60)).padStart(2, '0');
+            const seconds = String(Math.abs(remaining) % 60).padStart(2, '0');
+            let prefix = remaining < 0 ? '-' : '';
+            timerEl.textContent = \`\${prefix}\${minutes}:\${seconds}\`;
+            if (data.current_name) {
+                taskNameEl.textContent = data.current_name;
+            } else {
+                taskNameEl.textContent = '';
+            }
+        };
+    <\/script>
+</body>
+</html>`,
+            
+            control: `<!DOCTYPE html>
+<html>
+<head>
+    <title>Custom Timer Control</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        button { padding: 10px 20px; margin: 5px; font-size: 16px; }
+        #timer { font-size: 48px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>Timer Control</h1>
+    <div id="timer">--:--</div>
+    <div>
+        <button onclick="sendCommand('start')">Start</button>
+        <button onclick="sendCommand('pause')">Pause</button>
+        <button onclick="sendCommand('reset')">Reset</button>
+    </div>
+
+    <script>
+        const ws = new WebSocket("ws://" + location.hostname + ":50011");
+        const timerEl = document.getElementById("timer");
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const remaining = data.remaining;
+            const minutes = String(Math.floor(Math.abs(remaining) / 60)).padStart(2, '0');
+            const seconds = String(Math.abs(remaining) % 60).padStart(2, '0');
+            let prefix = remaining < 0 ? '-' : '';
+            timerEl.textContent = \`\${prefix}\${minutes}:\${seconds}\`;
+        };
+
+        function sendCommand(cmd) {
+            ws.send(cmd);
+        }
+    <\/script>
+</body>
+</html>`,
+
+            custom: `<!DOCTYPE html>
+<html>
+<head>
+    <title>Custom Timer Page</title>
+    <style>
+        /* Add your custom styles here */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        #timer {
+            font-size: 72px;
+            text-align: center;
+            margin: 50px 0;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>My Custom Timer</h1>
+    <div id="timer">--:--</div>
+    <div id="taskName"></div>
+
+    <script>
+        // WebSocket connection to timer server
+        const ws = new WebSocket("ws://" + location.hostname + ":50011");
+        const timerEl = document.getElementById("timer");
+        const taskNameEl = document.getElementById("taskName");
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const remaining = data.remaining;
+            const minutes = String(Math.floor(Math.abs(remaining) / 60)).padStart(2, '0');
+            const seconds = String(Math.abs(remaining) % 60).padStart(2, '0');
+            let prefix = remaining < 0 ? '-' : '';
+            timerEl.textContent = \`\${prefix}\${minutes}:\${seconds}\`;
+            
+            if (data.current_name) {
+                taskNameEl.textContent = data.current_name;
+            }
+        };
+
+        // Add your custom JavaScript here
+    <\/script>
+</body>
+</html>`
+        };
+
+        function loadTemplate(type) {
+            editor.value = templates[type] || '';
+            updatePreview();
+        }
+
+        function updatePreview() {
+            preview.innerHTML = editor.value;
+        }
+
+        function savePage() {
+            const filename = document.getElementById('filename').value;
+            const content = editor.value;
+
+            if (!filename.endsWith('.html')) {
+                status.innerHTML = '<p style="color: red;">Filename must end with .html</p>';
+                return;
+            }
+
+            fetch('/save-page', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    filename: filename,
+                    content: content
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    status.innerHTML = '<p style="color: green;">Page saved successfully!</p>';
+                } else {
+                    status.innerHTML = '<p style="color: red;">Error: ' + data.error + '</p>';
+                }
+            })
+            .catch(error => {
+                status.innerHTML = '<p style="color: red;">Network error: ' + error + '</p>';
+            });
+        }
+
+        function testTimer() {
+            const testWs = new WebSocket("ws://" + location.hostname + ":50011");
+            testWs.onopen = () => {
+                status.innerHTML = '<p style="color: green;">Timer server connection successful!</p>';
+                testWs.close();
+            };
+            testWs.onerror = () => {
+                status.innerHTML = '<p style="color: red;">Timer server connection failed!</p>';
+            };
+        }
+
+        // Load display template by default
+        loadTemplate('display');
+    </script>
+</body>
+</html>
