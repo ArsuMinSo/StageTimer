@@ -32,8 +32,10 @@
             border-radius: 4px;
         }
         .preview {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
             border: 1px solid #ddd;
-            padding: 10px;
             min-height: 300px;
             background: white;
             border-radius: 4px;
@@ -117,7 +119,7 @@
 
         <div class="editor-section">
             <h3>Preview</h3>
-            <div id="preview" class="preview"></div>
+            <iframe id="preview" class="preview" sandbox="allow-scripts allow-same-origin"></iframe>
         </div>
 
         <div class="editor-section">
@@ -312,7 +314,12 @@
         }
 
         function updatePreview() {
-            preview.innerHTML = editor.value;
+            // Rendered inside an iframe (not innerHTML) so <script> tags in the
+            // template actually execute. Templates build their WebSocket URL from
+            // `location.hostname`, which would resolve to "" inside a srcdoc
+            // iframe, so inline the real page's hostname before rendering.
+            const html = editor.value.replace(/location\.hostname/g, JSON.stringify(location.hostname));
+            preview.srcdoc = html;
         }
 
         function savePage() {
