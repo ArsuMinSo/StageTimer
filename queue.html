@@ -10,6 +10,30 @@
     th, td { border: 1px solid #ccc; padding: 0.5rem; }
     input, button { font-size: 1.2rem; margin: 0.2rem; }
     tr.selected { background: #cfc; }
+    textarea#bulkText {
+      width: 100%;
+      max-width: 700px;
+      height: 200px;
+      font-family: 'Courier New', monospace;
+      font-size: 1rem;
+      padding: 0.5rem;
+      box-sizing: border-box;
+    }
+    .bulk-section {
+      margin: 1.5rem 0;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .bulk-section .hint {
+      font-size: 0.85rem;
+      color: #666;
+      font-family: 'Courier New', monospace;
+      white-space: pre;
+      text-align: left;
+      display: inline-block;
+      margin: 0.5rem 0;
+    }
     .nav-panel {
       background: #343a40;
       padding: 15px;
@@ -43,18 +67,33 @@
     </div>
     
     <h1>Queue Manager</h1>
+
+    <h3>Add/Edit Task</h3>
+    <form id="addForm" onsubmit="addOrEditTask(event)">
+      <input type="hidden" id="editIndex" value="" />
+      <input type="text" id="taskName" placeholder="Task name" required />
+      <input type="text" id="taskDuration" placeholder="hh:mm:ss" required pattern="^\d{1,2}:\d{2}:\d{2}$|^\d{1,2}:\d{2}$|^\d+$" />
+      <button type="submit">Add/Update</button>
+      <button type="button" onclick="resetForm()">Cancel</button>
+    </form>
+
+    <div class="bulk-section">
+      <h3>Bulk Add / Delete</h3>
+      <div class="hint">One task per line: hh:mm:ss &lt;name&gt;
+00:45:00    Kapela Heart of Worship
+00:05:00    Moderátor uvede fireshow</div>
+      <br />
+      <textarea id="bulkText" placeholder="00:45:00    Kapela Heart of Worship"></textarea>
+      <br />
+      <button type="button" onclick="loadQueueIntoBulkText()">Load Current Queue</button>
+      <button type="button" onclick="applyBulkText()">Replace Entire Queue</button>
+      <button type="button" onclick="appendBulkText()">Append to Queue</button>
+    </div>
+
   <table id="queueTable">
     <thead><tr><th>#</th><th>Name</th><th>Duration (hh:mm:ss)</th><th>Actions</th></tr></thead>
     <tbody></tbody>
   </table>
-  <h3>Add/Edit Task</h3>
-  <form id="addForm" onsubmit="addOrEditTask(event)">
-    <input type="hidden" id="editIndex" value="" />
-    <input type="text" id="taskName" placeholder="Task name" required />
-    <input type="text" id="taskDuration" placeholder="hh:mm:ss" required pattern="^\d{1,2}:\d{2}:\d{2}$|^\d{1,2}:\d{2}$|^\d+$" />
-    <button type="submit">Add/Update</button>
-    <button type="button" onclick="resetForm()">Cancel</button>
-  </form>
   </div>
   <script>
     let ws;
@@ -127,6 +166,60 @@
       return NaN;
     }
 
+    // Parses lines like "00:45:00    Kapela Heart of Worship" into
+    // { items: [{name, duration}], errors: ["line 3: ..."] }
+    function parseBulkLines(text) {
+      const items = [];
+      const errors = [];
+      text.split('\n').forEach((rawLine, i) => {
+        const line = rawLine.trim();
+        if (!line) return;
+        const match = line.match(/^(\d{1,2}:\d{2}:\d{2}|\d{1,2}:\d{2}|\d+)\s+(.+)$/);
+        if (!match) {
+          errors.push(`line ${i + 1}: "${rawLine}"`);
+          return;
+        }
+        const duration = parseDuration(match[1]);
+        const name = match[2].trim();
+        if (isNaN(duration) || duration < 0 || !name) {
+          errors.push(`line ${i + 1}: "${rawLine}"`);
+          return;
+        }
+        items.push({ name, duration });
+      });
+      return { items, errors };
+    }
+
+    function loadQueueIntoBulkText() {
+      document.getElementById('bulkText').value =
+        queue.map(item => `${formatDuration(item.duration)}    ${item.name}`).join('\n');
+    }
+
+    function applyBulkText() {
+      const text = document.getElementById('bulkText').value;
+      const { items, errors } = parseBulkLines(text);
+      if (errors.length) {
+        alert('Fix these lines before applying (format: hh:mm:ss  name):\n' + errors.join('\n'));
+        return;
+      }
+      if (!confirm(`Replace the entire queue with these ${items.length} task(s)?`)) return;
+
+      send('queue_clear');
+      setTimeout(() => {
+        items.forEach(item => sendQueueAdd(item.name, item.duration));
+      }, 200);
+    }
+
+    function appendBulkText() {
+      const text = document.getElementById('bulkText').value;
+      const { items, errors } = parseBulkLines(text);
+      if (errors.length) {
+        alert('Fix these lines before appending (format: hh:mm:ss  name):\n' + errors.join('\n'));
+        return;
+      }
+      items.forEach(item => sendQueueAdd(item.name, item.duration));
+    }
+
     function renderQueue() {
       const tbody = document.querySelector('#queueTable tbody');
       tbody.innerHTML = '';
@@ -153,7 +246,7 @@
       const duration = parseDuration(durationInput);
       const editIndex = document.getElementById('editIndex').value;
 
-      if (isNaN(duration) || duration <= 0) {
+      if (isNaN(duration) || duration < 0) {
         alert('Enter duration as hh:mm:ss (e.g. 01:30:00)');
         return;
       }
