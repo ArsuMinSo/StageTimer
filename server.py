@@ -207,6 +207,13 @@ def start_http_server():
     os.chdir(os.path.dirname(os.path.abspath(__file__)))  # Change to script directory
     
     class CustomHandler(http.server.SimpleHTTPRequestHandler):
+        def end_headers(self):
+            # Pages are edited/saved live via the Designer, so never let the
+            # browser cache them - a fresh save must be visible immediately
+            # on the next load instead of serving a stale cached copy.
+            self.send_header('Cache-Control', 'no-store, must-revalidate')
+            super().end_headers()
+
         def do_POST(self):
             if self.path == '/save-page':
                 # Handle saving custom HTML pages

@@ -73,6 +73,10 @@
       <input type="hidden" id="editIndex" value="" />
       <input type="text" id="taskName" placeholder="Task name" required />
       <input type="text" id="taskDuration" placeholder="hh:mm:ss" required pattern="^\d{1,2}:\d{2}:\d{2}$|^\d{1,2}:\d{2}$|^\d+$" />
+      <br />
+      <label for="insertPosition">Insert position (new tasks only):</label>
+      <select id="insertPosition"></select>
+      <br />
       <button type="submit">Add/Update</button>
       <button type="button" onclick="resetForm()">Cancel</button>
     </form>
@@ -237,6 +241,29 @@
         `;
         tbody.appendChild(tr);
       });
+      updateInsertOptions();
+    }
+
+    // Keeps the "Insert position" dropdown in sync with the current queue,
+    // preserving the user's selection across updates when still valid.
+    function updateInsertOptions() {
+      const select = document.getElementById('insertPosition');
+      const prevValue = select.value;
+
+      select.innerHTML = '';
+      queue.forEach((item, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = `Before #${idx + 1}: ${item.name}`;
+        select.appendChild(opt);
+      });
+      const endOpt = document.createElement('option');
+      endOpt.value = queue.length;
+      endOpt.textContent = 'End of queue';
+      select.appendChild(endOpt);
+
+      const stillValid = [...select.options].some(o => o.value === prevValue);
+      select.value = stillValid ? prevValue : queue.length;
     }
 
     function addOrEditTask(e) {
@@ -252,8 +279,32 @@
       }
 
       if (editIndex === '') {
-        // Adding new task
-        sendQueueAdd(name, duration);
+        // Adding new task, optionally inserted at a chosen position
+        const insertAt = parseInt(document.getElementById('insertPosition').value);
+
+        if (isNaN(insertAt) || insertAt >= queue.length) {
+          // Appending at the end is a single, simple operation
+          sendQueueAdd(name, duration);
+        } else {
+          // Inserting mid-queue requires rebuilding the whole queue in order
+          const newQueue = [...queue];
+          newQueue.splice(insertAt, 0, { name, duration });
+          const wasBeforeCurrent = insertAt <= currentTaskIndex;
+
+          send('queue_clear');
+          setTimeout(() => {
+            newQueue.forEach(item => sendQueueAdd(item.name, item.duration));
+
+            // If the new task landed before the current task, the current
+            // task's index shifted forward by one; follow it.
+            setTimeout(() => {
+              const newCurrentIndex = wasBeforeCurrent ? currentTaskIndex + 1 : currentTaskIndex;
+              for (let i = 0; i < newCurrentIndex; i++) {
+                send('next');
+              }
+            }, 300);
+          }, 200);
+        }
       } else {
         // Editing existing task - simple approach
         const editIdx = parseInt(editIndex);
@@ -341,6 +392,10 @@
       document.getElementById('editIndex').value = '';
       document.getElementById('taskName').value = '';
       document.getElementById('taskDuration').value = '';
+      const select = document.getElementById('insertPosition');
+      if (select.options.length) {
+        select.value = queue.length; // default back to "End of queue"
+      }
     }
 
     function refreshCurrentTask() {
