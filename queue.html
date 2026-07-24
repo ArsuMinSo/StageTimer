@@ -92,12 +92,16 @@
       };
     }
 
-    function send(cmd) { 
+    function send(cmd) {
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(cmd); 
+        ws.send(cmd);
       } else {
         console.error("WebSocket not connected");
       }
+    }
+
+    function sendQueueAdd(name, duration) {
+      send(JSON.stringify({ cmd: "queue_add", name: name, duration: parseInt(duration) }));
     }
 
     function renderQueue() {
@@ -127,7 +131,7 @@
       
       if (editIndex === '') {
         // Adding new task
-        send(`queue_add ${name} ${duration}`);
+        sendQueueAdd(name, duration);
       } else {
         // Editing existing task - simple approach
         const editIdx = parseInt(editIndex);
@@ -145,7 +149,7 @@
         // Wait a bit, then rebuild the queue
         setTimeout(() => {
           currentQueue.forEach((item, idx) => {
-            send(`queue_add ${item.name} ${item.duration}`);
+            sendQueueAdd(item.name, item.duration);
           });
           
           // If we edited the current task, update the timer
@@ -180,7 +184,7 @@
       // Clear queue and rebuild
       send('queue_clear');
       setTimeout(() => {
-        newQueue.forEach(item => send(`queue_add ${item.name} ${item.duration}`));
+        newQueue.forEach(item => sendQueueAdd(item.name, item.duration));
         
         // Adjust current task index if needed
         setTimeout(() => {

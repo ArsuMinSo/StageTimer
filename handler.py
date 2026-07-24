@@ -8,6 +8,27 @@ class Handler:
         self.current_task_index = current_task_index
         self.save_queue = save_queue_func
 
+    def handle_json(self, data):
+        cmd = data.get("cmd", "").lower()
+        if cmd == "queue_add":
+            name = data.get("name")
+            try:
+                duration = int(data.get("duration"))
+            except (TypeError, ValueError):
+                return
+            if name:
+                self._queue_add(name, duration)
+
+    def _queue_add(self, name, duration):
+        self.queue.append({"name": name, "duration": duration})
+        self.save_queue(self.queue)
+
+        # If this is the first task and timer is at default, load it
+        if len(self.queue) == 1 and self.timer_state["duration"] == 300 and self.timer_state["remaining"] == 300:
+            self.timer_state["duration"] = duration
+            self.timer_state["remaining"] = duration
+            self.current_task_index[0] = 0
+
     def handle(self, parts):
         cmd = parts[0].lower()
         if cmd == "start":
@@ -31,15 +52,7 @@ class Handler:
                 try:
                     name = parts[1]
                     duration = int(parts[2])
-                    self.queue.append({"name": name, "duration": duration})
-                    self.save_queue(self.queue)
-                    
-                    # If this is the first task and timer is at default, load it
-                    if len(self.queue) == 1 and self.timer_state["duration"] == 300 and self.timer_state["remaining"] == 300:
-                        self.timer_state["duration"] = duration
-                        self.timer_state["remaining"] = duration
-                        self.current_task_index[0] = 0
-                        
+                    self._queue_add(name, duration)
                 except ValueError:
                     pass
         elif cmd == "adjust":

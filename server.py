@@ -175,9 +175,14 @@ async def handler(websocket):
         # Handle incoming messages
         async for message in websocket:
             try:
-                parts = message.strip().split()
-                if parts:  # Only handle non-empty messages
-                    handler_obj.handle(parts)
+                stripped = message.strip()
+                if not stripped:
+                    continue
+                if stripped.startswith("{"):
+                    # JSON commands carry free-text fields (e.g. task names with spaces)
+                    handler_obj.handle_json(json.loads(stripped))
+                else:
+                    handler_obj.handle(stripped.split())
             except Exception as e:
                 print(f"Error handling message '{message}': {e}")
                 
@@ -204,12 +209,24 @@ def start_http_server():
                 
                 filename = data.get('filename', 'custom.html')
                 content = data.get('content', '')
-                
+
+                # Sanitize filename: strip any directory components and
+                # only allow writing .html files into the script directory,
+                # to prevent path traversal to arbitrary filesystem locations.
+                filename = os.path.basename(filename)
+                if not filename.endswith('.html') or filename in ('', '.html'):
+                    self.send_response(400)
+                    self.send_header('Content-type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({'error': 'Invalid filename'}).encode())
+                    return
+
                 # Save the file
                 try:
                     with open(filename, 'w', encoding='utf-8') as f:
                         f.write(content)
-                    
+
                     self.send_response(200)
                     self.send_header('Content-type', 'application/json')
                     self.send_header('Access-Control-Allow-Origin', '*')

@@ -222,6 +222,41 @@
 </body>
 </html>`,
 
+            queue: `<!DOCTYPE html>
+<html>
+<head>
+    <title>Custom Queue Manager</title>
+    <style>
+        body { font-family: sans-serif; padding: 2rem; text-align: center; }
+        table { margin: auto; min-width: 400px; border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 0.5rem; }
+        tr.selected { background: #cfc; }
+    </style>
+</head>
+<body>
+    <h1>Queue</h1>
+    <table id="queueTable">
+        <thead><tr><th>#</th><th>Name</th><th>Duration (s)</th></tr></thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        const ws = new WebSocket("ws://" + location.hostname + ":50011");
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const tbody = document.querySelector('#queueTable tbody');
+            tbody.innerHTML = '';
+            (data.queue || []).forEach((item, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = idx === data.current_task_index ? 'selected' : '';
+                tr.innerHTML = \`<td>\${idx + 1}</td><td>\${item.name}</td><td>\${item.duration}</td>\`;
+                tbody.appendChild(tr);
+            });
+        };
+    <\/script>
+</body>
+</html>`,
+
             custom: `<!DOCTYPE html>
 <html>
 <head>
