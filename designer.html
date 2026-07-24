@@ -123,6 +123,12 @@
         </div>
 
         <div class="editor-section">
+            <h3>Load Page</h3>
+            <input type="text" id="loadFilename" placeholder="page-name.html" value="display.html">
+            <button onclick="loadPage()">Load Page into Editor</button>
+        </div>
+
+        <div class="editor-section">
             <h3>Save Page</h3>
             <input type="text" id="filename" placeholder="page-name.html" value="custom.html">
             <button onclick="updatePreview()">Update Preview</button>
@@ -311,6 +317,33 @@
         function loadTemplate(type) {
             editor.value = templates[type] || '';
             updatePreview();
+        }
+
+        function loadPage() {
+            const filename = document.getElementById('loadFilename').value.trim();
+
+            if (!filename.endsWith('.html')) {
+                status.innerHTML = '<p style="color: red;">Filename must end with .html</p>';
+                return;
+            }
+
+            // Cache-busting query param: the server also sends no-store, but this
+            // guards against any intermediate cache still holding a stale copy.
+            fetch('/' + filename + '?_=' + Date.now(), { cache: 'no-store' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`${response.status} ${response.statusText}`);
+                    }
+                    return response.text();
+                })
+                .then(text => {
+                    editor.value = text;
+                    updatePreview();
+                    status.innerHTML = `<p style="color: green;">Loaded ${filename} into the editor.</p>`;
+                })
+                .catch(error => {
+                    status.innerHTML = '<p style="color: red;">Error loading page: ' + error + '</p>';
+                });
         }
 
         function updatePreview() {
