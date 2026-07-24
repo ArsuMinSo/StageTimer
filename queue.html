@@ -44,7 +44,7 @@
     
     <h1>Queue Manager</h1>
   <table id="queueTable">
-    <thead><tr><th>#</th><th>Name</th><th>Duration (s)</th><th>Actions</th></tr></thead>
+    <thead><tr><th>#</th><th>Name</th><th>Duration (hh:mm:ss)</th><th>Actions</th></tr></thead>
     <tbody></tbody>
   </table>
   <h3>Add/Edit Task</h3>
@@ -104,6 +104,13 @@
       send(JSON.stringify({ cmd: "queue_add", name: name, duration: parseInt(duration) }));
     }
 
+    function formatDuration(totalSeconds) {
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return [hours, minutes, seconds].map(n => String(n).padStart(2, '0')).join(':');
+    }
+
     function renderQueue() {
       const tbody = document.querySelector('#queueTable tbody');
       tbody.innerHTML = '';
@@ -113,7 +120,7 @@
         tr.innerHTML = `
           <td>${idx+1}</td>
           <td>${item.name}</td>
-          <td>${item.duration}</td>
+          <td>${formatDuration(item.duration)}</td>
           <td>
             <button onclick="editTask(${idx})">Edit</button>
             <button onclick="deleteTask(${idx})">Delete</button>
