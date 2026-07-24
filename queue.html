@@ -51,7 +51,7 @@
   <form id="addForm" onsubmit="addOrEditTask(event)">
     <input type="hidden" id="editIndex" value="" />
     <input type="text" id="taskName" placeholder="Task name" required />
-    <input type="number" id="taskDuration" placeholder="Duration (s)" required min="1" />
+    <input type="text" id="taskDuration" placeholder="hh:mm:ss" required pattern="^\d{1,2}:\d{2}:\d{2}$|^\d{1,2}:\d{2}$|^\d+$" />
     <button type="submit">Add/Update</button>
     <button type="button" onclick="resetForm()">Cancel</button>
   </form>
@@ -101,7 +101,7 @@
     }
 
     function sendQueueAdd(name, duration) {
-      send(JSON.stringify({ cmd: "queue_add", name: name, duration: parseInt(duration) }));
+      send(JSON.stringify({ cmd: "queue_add", name: name, duration: duration }));
     }
 
     function formatDuration(totalSeconds) {
@@ -109,6 +109,22 @@
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       const seconds = totalSeconds % 60;
       return [hours, minutes, seconds].map(n => String(n).padStart(2, '0')).join(':');
+    }
+
+    // Accepts "hh:mm:ss", "mm:ss", or a plain number of seconds
+    function parseDuration(value) {
+      const parts = value.trim().split(':').map(Number);
+      if (parts.some(n => isNaN(n))) return NaN;
+      if (parts.length === 3) {
+        const [h, m, s] = parts;
+        return h * 3600 + m * 60 + s;
+      } else if (parts.length === 2) {
+        const [m, s] = parts;
+        return m * 60 + s;
+      } else if (parts.length === 1) {
+        return parts[0];
+      }
+      return NaN;
     }
 
     function renderQueue() {
@@ -133,22 +149,28 @@
     function addOrEditTask(e) {
       e.preventDefault();
       const name = document.getElementById('taskName').value;
-      const duration = document.getElementById('taskDuration').value;
+      const durationInput = document.getElementById('taskDuration').value;
+      const duration = parseDuration(durationInput);
       const editIndex = document.getElementById('editIndex').value;
-      
+
+      if (isNaN(duration) || duration <= 0) {
+        alert('Enter duration as hh:mm:ss (e.g. 01:30:00)');
+        return;
+      }
+
       if (editIndex === '') {
         // Adding new task
         sendQueueAdd(name, duration);
       } else {
         // Editing existing task - simple approach
         const editIdx = parseInt(editIndex);
-        
+
         // Store current queue state
         const currentQueue = [...queue];
         const wasCurrentTask = (editIdx === currentTaskIndex);
-        
+
         // Update the item in our local copy
-        currentQueue[editIdx] = {name: name, duration: parseInt(duration)};
+        currentQueue[editIdx] = {name: name, duration: duration};
         
         // Clear and rebuild
         send('queue_clear');
@@ -180,7 +202,7 @@
     function editTask(idx) {
       document.getElementById('editIndex').value = idx;
       document.getElementById('taskName').value = queue[idx].name;
-      document.getElementById('taskDuration').value = queue[idx].duration;
+      document.getElementById('taskDuration').value = formatDuration(queue[idx].duration);
     }
 
     function deleteTask(idx, resetFormFlag = true) {
