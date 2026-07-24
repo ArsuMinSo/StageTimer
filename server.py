@@ -16,6 +16,13 @@ import http.server
 import socketserver
 import threading
 import os
+import logging
+
+# Silence noisy tracebacks the websockets library logs whenever something
+# opens a raw TCP connection to the WS port and closes it without completing
+# a handshake (port scans, health checks, aborted browser connections). These
+# are harmless and don't affect the running server.
+logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
 
 
 # --- Global State ---
